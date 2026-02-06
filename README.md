@@ -1,4 +1,4 @@
-# SAI3-2025
+# SAI3-2026
 Course Material for SAI3 @BFH Switzerland
 
 ## Dependencies
