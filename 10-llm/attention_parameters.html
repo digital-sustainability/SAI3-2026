@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Transformer Multi-Head Attention Visualization (Temperature + Specialization)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+<style>
+body { font-family: sans-serif; text-align: center; }
+#controls { margin: 10px; }
+label { margin-right: 10px; }
+select, input[type=range] { margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<h2>Transformer Attention & Multi-Head Attention Visualization</h2>
+<p>All attention mechanisms included, with animated multi-head specialization and temperature effects.</p>
+
+<div id="controls">
+<label>Attention Type:</label>
+<select id="attentionType" onchange="updateAttentionType()">
+  <option value="none" selected>None (Vanilla Seq2Seq)</option>
+  <option value="cross">Cross-Attention Only</option>
+  <option value="self">Decoder Self-Attention Only</option>
+  <option value="both">Cross + Masked Self-Attention</option>
+</select>
+<br>
+<label>Temperature: <span id="tempVal">1.0</span></label>
+<input type="range" id="temperature" min="0.1" max="2" value="1" step="0.05" oninput="updateTemp(this.value)">
+<br>
+<label>Context Length: <span id="ctxVal">5</span></label>
+<input type="range" id="contextLen" min="1" max="8" value="5" step="1" oninput="updateContext(this.value)">
+<br>
+<label>Multi-Head Attention:</label>
+<input type="checkbox" id="multiHead" onchange="updateMultiHead()">
+</div>
+
+<script>
+let encoderTokens = ["I", "love", "machine", "learning", "so", "much", "fun", "today"];
+let decoderTokens = ["te", "amo", "beaucoup"];
+let temperature = 1.0;
+let contextLength = 5;
+let attentionType = "none"; // default to Vanilla Seq2Seq
+let multiHead = false; // default off
+let numHeads = 3;
+let trainingProgress = 0; // used to animate specialization
+let headColors = ['rgba(0,200,0,', 'rgba(0,150,255,', 'rgba(255,165,0,'];
+
+function updateTemp(val) { temperature = parseFloat(val); document.getElementById("tempVal").innerText = temperature; }
+function updateContext(val) { contextLength = parseInt(val); document.getElementById("ctxVal").innerText = contextLength; }
+function updateAttentionType() { attentionType = document.getElementById("attentionType").value; }
+function updateMultiHead() { multiHead = document.getElementById("multiHead").checked; }
+
+function setup() {
+  createCanvas(1000, 600);
+  textAlign(CENTER, CENTER);
+  textSize(16);
+}
+
+function draw() {
+  background(255);
+  let startX = width/2 - (contextLength-1)*100/2;
+
+  // Draw encoder tokens
+  for(let i=0;i<contextLength;i++){
+    fill(0, 150, 255, 150);
+    rect(startX+i*100-40, height/2 - 200, 80, 60, 10);
+    fill(0);
+    text(encoderTokens[i], startX+i*100, height/2 - 200);
+  }
+
+  let decoderSpacing = 200;
+  let decoderY = height/2 + 50;
+
+  for(let d=0; d<decoderTokens.length; d++){
+    let ctxX = width/2 - ((decoderTokens.length-1)*decoderSpacing)/2 + d*decoderSpacing;
+
+    // Context vector for decoder token
+    fill(255, 204, 0, 180);
+    rect(ctxX-60, decoderY, 120, 60, 10);
+    fill(0);
+    text(`Context for "${decoderTokens[d]}"`, ctxX, decoderY+30);
+
+    // Cross-Attention
+    if(attentionType==="cross" || attentionType==="both"){
+      for(let i=0;i<contextLength;i++){
+        if(multiHead){
+          for(let h=0; h<numHeads; h++){
+            let focus = Math.abs((i - (h*contextLength/numHeads))) / contextLength;
+            // Combine emergent specialization and temperature effect
+            let alpha = Math.max(0, (1-focus) * trainingProgress) * (1/temperature);
+            stroke(headColors[h] + alpha + ')');
+            strokeWeight(2);
+            line(startX+i*100, height/2-170, ctxX + h*5 - (numHeads-1)*5, decoderY);
+          }
+        } else {
+          let rawWeight = random(0.3,1.0) / temperature; // apply temperature even for single head
+          stroke(0,200,0,rawWeight*255);
+          strokeWeight(2);
+          line(startX+i*100, height/2-170, ctxX, decoderY);
+        }
+      }
+    }
+
+    // Masked self-attention
+    if(attentionType==="self" || attentionType==="both"){
+      for(let prev=0; prev<d; prev++){
+        let prevX = width/2 - ((decoderTokens.length-1)*decoderSpacing)/2 + prev*decoderSpacing;
+        stroke(200,0,200,180);
+        strokeWeight(2);
+        line(prevX, decoderY, ctxX, decoderY);
+      }
+    }
+
+    // Decoder token
+    fill(255, 100, 100, 180);
+    rect(ctxX-40, decoderY + 100, 80, 50, 10);
+    fill(0);
+    text(decoderTokens[d], ctxX, decoderY + 125);
+
+    // Arrow from context to decoder token
+    stroke(0);
+    line(ctxX, decoderY+30, ctxX, decoderY+100);
+  }
+
+  // Animate multi-head specialization gradually
+  trainingProgress += 0.005;
+  if(trainingProgress > 1) trainingProgress = 1;
+
+  fill(0);
+  textSize(14);
+  text("Encoder Tokens (truncated by context length)", width/2, height/2 - 250);
+  text("Green/Blue/Orange = Multi-Head Attention, Purple = Masked Self-Attention", width/2, height-30);
+  text("Arrow opacity gradually increases to show emergent specialization during training and is influenced by temperature", width/2, height-10);
+}
+</script>
+</body>
+</html>
